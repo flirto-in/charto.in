@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
+import { AuthProvider } from '../contexts/AuthContext';
 import '../global.css';
 
 export const unstable_settings = {
@@ -10,8 +11,11 @@ export const unstable_settings = {
 export default function RootLayout() {
   
   return (
-    <>
-      <Stack>
+    <AuthProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        {/* Authentication pages - no header */}
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        
         {/* Main tabs navigation */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         
@@ -33,8 +37,17 @@ export default function RootLayout() {
             headerTintColor: '#FFFFFF',
           }} 
         />
+        <Stack.Screen 
+          name="group-chat" 
+          options={{ 
+            title: 'Group Chats',
+            headerStyle: { backgroundColor: '#1F2937' },
+            headerTintColor: '#FFFFFF',
+            headerShown: false,
+          }} 
+        />
       </Stack>
-      <StatusBar style="dark" />
-    </>
+      <StatusBar style="light" />
+    </AuthProvider>
   );
 }

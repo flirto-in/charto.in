@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 export default function AllScreen() {
@@ -28,6 +29,39 @@ export default function AllScreen() {
           🟢 {onlineUsers.length} users online
         </Text>
       </View>
+
+      {/* Quick Chat Access */}
+      <View className="p-5">
+        <Text className="text-lg font-semibold text-white mb-4">Quick Chat Access</Text>
+        <View className="mb-6">
+          <TouchableOpacity 
+            onPress={() => router.push('/group-chat')}
+            className="bg-green-600 rounded-xl p-4 items-center"
+          >
+            <Text className="text-3xl mb-2">👥</Text>
+            <Text className="text-white font-semibold">Group Chats</Text>
+            <Text className="text-green-200 text-sm text-center">Join topic-based chat rooms</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            onPress={() => router.push('/WhatsAppNumberInput')}
+            className="bg-blue-600 rounded-xl p-4 items-center">
+            <Text className="text-white font-semibold">Number</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={() => router.push('/otp')}
+            className="bg-blue-600 rounded-xl p-4 items-center">
+            <Text className="text-white font-semibold">OTPVerification</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={() => router.push('/googleAuth')}
+            className="bg-blue-600 rounded-xl p-4 items-center">
+            <Text className="text-white font-semibold">GoogleAuth</Text>
+          </TouchableOpacity>
+
+        </View>
+      </View>
+      
 
       <View className="p-5">
         {/* People Online */}

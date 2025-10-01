@@ -20,5 +20,5 @@
     "app/(tabs)/explore.jsx",
     "app/(tabs)/_layout.jsx",
     "nativewind-env.d.ts"
-  ]
+, "app/_layout.jsx"  ]
 }

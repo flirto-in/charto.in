@@ -1,8 +1,11 @@
+import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function ProfileScreen() {
   const [dropdownVisible, setDropdownVisible] = useState(false);
+  const { user, logout } = useAuth();
 
   const userPosts = [
     {
@@ -41,12 +44,16 @@ export default function ProfileScreen() {
             
             {/* UID and Verification */}
             <View className="flex-row items-center">
-              <Text className="text-xl font-bold text-white mr-2">USR2024</Text>
-              <Image 
-                source={require('../../assets/image.png')} 
-                className="w-5 h-5"
-                resizeMode="contain"
-              />
+              <Text className="text-xl font-bold text-white mr-2">
+                {user?.uid || 'USR2024'}
+              </Text>
+              {user?.isPhoneVerified && (
+                <Image 
+                  source={require('../../assets/image.png')} 
+                  className="w-5 h-5"
+                  resizeMode="contain"
+                />
+              )}
             </View>
           </View>
           
@@ -73,7 +80,31 @@ export default function ProfileScreen() {
                 <TouchableOpacity className="px-4 py-3 border-b border-gray-600">
                   <Text className="text-white">❓ Help & Support</Text>
                 </TouchableOpacity>
-                <TouchableOpacity className="px-4 py-3">
+                <TouchableOpacity 
+                  className="px-4 py-3"
+                  onPress={() => {
+                    setDropdownVisible(false);
+                    Alert.alert(
+                      'Logout',
+                      'Are you sure you want to logout?',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { 
+                          text: 'Logout', 
+                          style: 'destructive', 
+                          onPress: async () => {
+                            const success = await logout();
+                            if (success) {
+                              router.replace('/(auth)/WhatsAppNumberInput');
+                            } else {
+                              Alert.alert('Error', 'Failed to logout. Please try again.');
+                            }
+                          }
+                        }
+                      ]
+                    );
+                  }}
+                >
                   <Text className="text-red-400">🚪 Logout</Text>
                 </TouchableOpacity>
               </View>
@@ -83,6 +114,21 @@ export default function ProfileScreen() {
       </View>
 
       <View className="p-5">
+        {/* User Info */}
+        <View className="mb-6">
+          <Text className="text-gray-400 text-sm mb-2">
+            Phone: {user?.phoneNumber ? user.phoneNumber.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3') : 'Not provided'}
+          </Text>
+          {user?.googleAccount && (
+            <Text className="text-gray-400 text-sm mb-2">
+              Google: Connected ✓
+            </Text>
+          )}
+          <Text className="text-gray-400 text-sm">
+            Joined: {user?.joinedAt ? new Date(user.joinedAt).toLocaleDateString() : 'Recently'}
+          </Text>
+        </View>
+
         {/* User Bio */}
         <View className="mb-6">
           <Text className="text-white text-base mb-3">
@@ -121,12 +167,16 @@ export default function ProfileScreen() {
                   <Text className="text-sm">👨‍💻</Text>
                 </View>
                 <View className="flex-row items-center">
-                  <Text className="text-white font-semibold mr-2">USR2024</Text>
-                  <Image 
-                    source={require('../../assets/image.png')}
-                    className="w-3 h-3 mr-2"
-                    resizeMode="contain"
-                  />
+                  <Text className="text-white font-semibold mr-2">
+                    {user?.uid || 'USR2024'}
+                  </Text>
+                  {user?.isPhoneVerified && (
+                    <Image 
+                      source={require('../../assets/image.png')}
+                      className="w-3 h-3 mr-2"
+                      resizeMode="contain"
+                    />
+                  )}
                   <Text className="text-gray-400 text-sm">{post.timestamp}</Text>
                 </View>
               </View>

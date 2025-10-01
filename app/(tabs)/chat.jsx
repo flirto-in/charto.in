@@ -1,6 +1,9 @@
+import { router } from 'expo-router';
+import { useState } from 'react';
 import { Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function ChatScreen() {
+  const [activeTab, setActiveTab] = useState('personal');
   const personalChats = [
     { 
       id: 1, 
@@ -68,9 +71,27 @@ export default function ChatScreen() {
     <ScrollView className="flex-1 bg-gray-900">
       <View className="bg-gray-800 pt-12 pb-4 px-5 border-b border-gray-700">
         <View className="flex-row justify-between items-center mb-4">
-          <Text className="text-2xl font-bold text-white">Personal Chats</Text>
+          <Text className="text-2xl font-bold text-white">Chats</Text>
           <TouchableOpacity className="bg-blue-600 px-4 py-2 rounded-lg">
             <Text className="text-white font-medium">+ New Chat</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Chat Type Navigation */}
+        <View className="flex-row bg-gray-700 rounded-xl p-1 mb-4">
+          <TouchableOpacity 
+            onPress={() => setActiveTab('personal')}
+            className={`flex-1 py-2 px-4 rounded-lg ${activeTab === 'personal' ? 'bg-blue-600' : 'bg-transparent'}`}
+          >
+            <Text className={`text-center font-medium ${activeTab === 'personal' ? 'text-white' : 'text-gray-400'}`}>
+              Personal
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={() => router.push('/group-chat')}
+            className="flex-1 py-2 px-4 rounded-lg bg-transparent"
+          >
+            <Text className="text-gray-400 text-center font-medium">Groups</Text>
           </TouchableOpacity>
         </View>
         
