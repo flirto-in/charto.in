@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../contexts/AuthContext';
 import '../global.css';
 
@@ -11,7 +12,8 @@ export const unstable_settings = {
 export default function RootLayout() {
   
   return (
-    <AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
       <Stack screenOptions={{ headerShown: false }}>
         {/* Authentication pages - no header */}
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
@@ -49,5 +51,6 @@ export default function RootLayout() {
       </Stack>
       <StatusBar style="light" />
     </AuthProvider>
+    </SafeAreaProvider>
   );
 }
