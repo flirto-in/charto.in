@@ -1,7 +1,9 @@
 import { router } from 'expo-router';
 import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
+
 export default function AllScreen() {
+
   const onlineUsers = [
     { id: 1, uid: 'USR123', avatar: '👨', isOnline: true, isVerified: true, tags: ['Music', 'Travel', 'Tech'] },
     { id: 2, uid: 'USR456', avatar: '👩', isOnline: true, isVerified: false, tags: ['Art', 'Books', 'Coffee'] },
@@ -34,7 +36,7 @@ export default function AllScreen() {
       <View className="p-5">
         <Text className="text-lg font-semibold text-white mb-4">Quick Chat Access</Text>
         <View className="mb-6">
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => router.push('/group-chat')}
             className="bg-green-600 rounded-xl p-4 items-center"
           >
@@ -43,31 +45,31 @@ export default function AllScreen() {
             <Text className="text-green-200 text-sm text-center">Join topic-based chat rooms</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => router.push('/WhatsAppNumberInput')}
             className="bg-blue-600 rounded-xl p-4 items-center">
             <Text className="text-white font-semibold">Number</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => router.push('/otp')}
             className="bg-blue-600 rounded-xl p-4 items-center">
             <Text className="text-white font-semibold">OTPVerification</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            onPress={() => router.push('/googleAuth')}
+          <TouchableOpacity
+            // onPress={() => getUserData()}
             className="bg-blue-600 rounded-xl p-4 items-center">
             <Text className="text-white font-semibold">GoogleAuth</Text>
           </TouchableOpacity>
 
         </View>
       </View>
-      
+
 
       <View className="p-5">
         {/* People Online */}
         <View className="mb-6">
           <Text className="text-lg font-semibold text-white mb-3">People Online</Text>
-          
+
           {onlineUsers.map((user) => (
             <View key={user.id} className="bg-gray-800 rounded-xl p-4 border border-gray-700 mb-3">
               <View className="flex-row items-center justify-between">
@@ -78,19 +80,19 @@ export default function AllScreen() {
                       <View className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800" />
                     )}
                   </View>
-                  
+
                   <View className="flex-1">
                     <View className="flex-row items-center">
                       <Text className="text-white font-semibold">{user.uid}</Text>
                       {user.isVerified && (
-                        <Image 
-                          source={require('../../assets/image.png')} 
+                        <Image
+                          source={require('../../assets/image.png')}
                           className="w-4 h-4 ml-2"
                           resizeMode="contain"
                         />
                       )}
                     </View>
-                    
+
                     <View className="flex-row mt-1">
                       {user.tags.slice(0, 2).map((tag, index) => (
                         <View key={index} className="bg-gray-700 px-2 py-1 rounded-full mr-2">

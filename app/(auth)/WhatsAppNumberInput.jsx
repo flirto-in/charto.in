@@ -2,12 +2,14 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AuthFooter from '../../components/AuthFooter';
 import { useAuth } from '../../contexts/AuthContext';
+
 
 export default function WhatsAppNumberInput() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { savePhoneNumber } = useAuth();
+  const { sendOTP } = useAuth();
 
   const validatePhoneNumber = (number) => {
     const cleaned = number.replace(/\D/g, '');
@@ -32,23 +34,25 @@ export default function WhatsAppNumberInput() {
 
   const handleContinue = async () => {
     if (!validatePhoneNumber(phoneNumber)) {
-      Alert.alert('Invalid Number', 'Please enter a valid phone number');
+      Alert.alert('Invalid Number', 'Please enter a valid Whatsapp number');
       return;
     }
 
     setIsLoading(true);
     try {
       const cleanedNumber = phoneNumber.replace(/\D/g, '');
-      const userData = await savePhoneNumber(cleanedNumber);
+      const result = await sendOTP(cleanedNumber);
       
-      if (userData) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      if (result.success) {
+        // For development, you can log the OTP
+        console.log('OTP sent:', result.otp);
+        
         router.push({
           pathname: '/otp',
           params: { phoneNumber: cleanedNumber }
         });
       } else {
-        Alert.alert('Error', 'Failed to save phone number');
+        Alert.alert('Error', result.error || 'Failed to send OTP');
       }
     } catch (_error) {
       Alert.alert('Error', 'Please try again');
@@ -70,18 +74,18 @@ export default function WhatsAppNumberInput() {
               Welcome to Charto
             </Text>
             <Text className="text-gray-400 text-center text-sm">
-              Enter your phone number to get started
+              Enter your whatsApp number to get started
             </Text>
           </View>
 
           {/* Phone Input */}
           <View className="mb-8">
-            <Text className="text-gray-300 text-sm mb-4">Phone Number</Text>
+            <Text className="text-gray-300 text-sm mb-4">Whatsapp Number</Text>
             <View className="flex-row items-center bg-gray-800 rounded-lg border border-gray-700 px-4 py-4">
-              <Text className="text-gray-300 mr-3">+1</Text>
+              <Text className="text-gray-300 mr-3">+91</Text>
               <TextInput
                 className="flex-1 text-white text-base"
-                placeholder="Enter phone number"
+                placeholder="Enter Whatsapp number"
                 placeholderTextColor="#6B7280"
                 value={phoneNumber}
                 onChangeText={handlePhoneNumberChange}
@@ -108,12 +112,7 @@ export default function WhatsAppNumberInput() {
           </TouchableOpacity>
 
           {/* Privacy */}
-          <View className="mt-auto">
-            <Text className="text-gray-500 text-xs text-center leading-5">
-              Your data is encrypted and secure.{'\n'}
-              By continuing, you accept our Terms & Privacy Policy.
-            </Text>
-          </View>
+          <AuthFooter/>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { API_CONFIG, authenticatedApiCall, publicApiCall } from '../config/api';
 
 const AuthContext = createContext({});
 
@@ -23,13 +25,23 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
-      const userData = await AsyncStorage.getItem('@user_auth');
-      const isVerified = await AsyncStorage.getItem('@user_verified');
+      const accessToken = await SecureStore.getItemAsync('accessToken');
+      const userData = await AsyncStorage.getItem('@user_data');
       
-      if (userData && isVerified === 'true') {
+      if (accessToken && userData) {
         const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        setIsAuthenticated(true);
+        
+        // Verify token is still valid by making a test API call
+        try {
+          await authenticatedApiCall(`/users/${parsedUser._id}`);
+          setUser(parsedUser);
+          setIsAuthenticated(true);
+        } catch (error) {
+          if (error.message === 'UNAUTHORIZED') {
+            // Token expired, clear everything
+            await logout();
+          }
+        }
       } else {
         setIsAuthenticated(false);
         setUser(null);
@@ -58,7 +70,8 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await AsyncStorage.multiRemove(['@user_auth', '@user_verified', '@user_data']);
+      await AsyncStorage.multiRemove(['@user_data', '@user_temp', '@user_auth', '@user_verified']);
+      await SecureStore.deleteItemAsync('accessToken');
       setUser(null);
       setIsAuthenticated(false);
       return true;
@@ -68,40 +81,90 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const savePhoneNumber = async (phoneNumber) => {
+  const sendOTP = async (phoneNumber) => {
     try {
-      const userData = {
-        phoneNumber,
-        uid: 'USR' + Math.random().toString(36).substr(2, 6).toUpperCase(),
-        isPhoneVerified: false,
-        joinedAt: new Date().toISOString()
-      };
+      const phoneNumberInt = parseInt(phoneNumber, 10);
       
-      await AsyncStorage.setItem('@user_temp', JSON.stringify(userData));
-      setUser(userData);
-      return userData;
+      // Use publicApiCall since OTP sending doesn't require authentication
+      const data = await publicApiCall(API_CONFIG.ENDPOINTS.SEND_OTP, {
+        method: 'POST',
+        body: JSON.stringify({ phoneNumber: phoneNumberInt }),
+      });
+      
+      if (data.success && data.statusCode === 200) {
+        await AsyncStorage.setItem('@temp_phone', phoneNumber.toString());
+        return { success: true, otp: data.data.otp };
+      } else {
+        return { success: false, error: data.message || 'Failed to send OTP' };
+      }
     } catch (error) {
-      console.error('Error saving phone number:', error);
-      return null;
+      console.error('Error sending OTP:', error);
+      return { success: false, error: error.message || 'Network error. Please try again.' };
     }
   };
 
-  const verifyOTP = async () => {
+  const verifyOTP = async (phoneNumber, otpCode) => {
     try {
-      const tempUser = await AsyncStorage.getItem('@user_temp');
-      if (tempUser) {
-        const userData = JSON.parse(tempUser);
-        userData.isPhoneVerified = true;
+      const phoneNumberInt = parseInt(phoneNumber, 10);
+      
+      console.log('Attempting to verify OTP:', {
+        phoneNumber: phoneNumberInt,
+        otp: otpCode,
+        endpoint: API_CONFIG.ENDPOINTS.AUTHENTICATE
+      });
+      
+      // Use publicApiCall since OTP verification creates the authentication
+      const data = await publicApiCall(API_CONFIG.ENDPOINTS.AUTHENTICATE, {
+        method: 'POST',
+        body: JSON.stringify({ phoneNumber: phoneNumberInt, otp: otpCode }),
+      });
+      
+      console.log('OTP Verification Response:', JSON.stringify(data, null, 2));
+      
+      if (data.success && (data.statusCode === 200 || data.statusCode === 201)) {
+        const { accessToken, user } = data.data;
         
-        await AsyncStorage.setItem('@user_auth', JSON.stringify(userData));
-        await AsyncStorage.removeItem('@user_temp');
-        setUser(userData);
-        return userData;
+        // Store JWT token securely
+        await SecureStore.setItemAsync('accessToken', accessToken);
+        
+        // Store user data
+        await AsyncStorage.setItem('@user_data', JSON.stringify(user));
+        
+        // Clean up temporary phone number
+        await AsyncStorage.removeItem('@temp_phone');
+        
+        console.log('User object from backend:', JSON.stringify(user, null, 2));
+        
+        setUser(user);
+        setIsAuthenticated(true);
+        
+        return { success: true, user, accessToken };
+      } else {
+        console.error('OTP verification failed:', data);
+        return { success: false, error: data.message || 'Invalid OTP' };
       }
-      return null;
     } catch (error) {
       console.error('Error verifying OTP:', error);
-      return null;
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      return { success: false, error: error.message || 'Network error. Please try again.' };
+    }
+  };
+
+  // Function to make authenticated API calls with automatic token handling
+  const makeAuthenticatedRequest = async (endpoint, options = {}) => {
+    try {
+      return await authenticatedApiCall(endpoint, options);
+    } catch (error) {
+      if (error.message === 'UNAUTHORIZED') {
+        // Token is expired/invalid, logout user
+        await logout();
+        throw new Error('Session expired. Please login again.');
+      }
+      throw error;
     }
   };
 
@@ -126,10 +189,11 @@ export const AuthProvider = ({ children }) => {
       user,
       login,
       logout,
-      savePhoneNumber,
+      sendOTP,
       verifyOTP,
       completeAuth,
-      checkAuthStatus
+      checkAuthStatus,
+      makeAuthenticatedRequest, // Use this for all authenticated API calls
     }}>
       {children}
     </AuthContext.Provider>

@@ -1,4 +1,4 @@
-﻿import { Tabs } from 'expo-router';
+import { Tabs } from 'expo-router';
 import React from 'react';
 import { Text } from 'react-native';
 import RouteProtection from '../../components/RouteProtection';

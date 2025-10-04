@@ -11,3 +11,9 @@ in the room page its like group chat section.
 in the room page its like group chat section.
 
 in the profile page users avtar the UID verification tik (blue tik) and a profile edit option in one line
+
+
+ if (success) {
+          router.replace('/(tabs)');
+        } else {
+          Alert.alert('Error', 'Failed to complete setup')

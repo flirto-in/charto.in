@@ -6,11 +6,11 @@ import { useAuth } from '../../contexts/AuthContext';
 
 export default function OTPVerification() {
   const { phoneNumber } = useLocalSearchParams();
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
-  const { verifyOTP } = useAuth();
+  const { verifyOTP, sendOTP } = useAuth();
   
   const inputRefs = useRef([]);
 
@@ -56,26 +56,21 @@ export default function OTPVerification() {
   const handleVerifyOtp = async () => {
     const otpValue = otp.join('');
     
-    if (otpValue.length !== 6) {
+    if (otpValue.length !== 4) {
       Alert.alert('Incomplete Code', 'Please enter the complete verification code');
       return;
     }
 
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await verifyOTP(phoneNumber, otpValue);
       
-      // For demo, accept any 6-digit code
-      if (otpValue.length === 6) {
-        const userData = await verifyOTP();
-        if (userData) {
-          router.push('/googleAuth');
-        } else {
-          Alert.alert('Error', 'Verification failed');
-        }
+      if (result.success) {
+        // OTP verified successfully, authentication complete - go to main app
+        router.replace('/(tabs)');
       } else {
-        Alert.alert('Invalid Code', 'Please check and try again');
-        setOtp(['', '', '', '', '', '']);
+        Alert.alert('Invalid Code', result.error || 'Please check and try again');
+        setOtp(['', '', '', '']);
         inputRefs.current[0]?.focus();
       }
     } catch (_error) {
@@ -90,11 +85,17 @@ export default function OTPVerification() {
 
     setCanResend(false);
     setResendTimer(30);
-    setOtp(['', '', '', '', '', '']);
+    setOtp(['', '', '', '']);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      Alert.alert('Code Sent', 'A new code has been sent');
+      const result = await sendOTP(phoneNumber);
+      
+      if (result.success) {
+        Alert.alert('Code Sent', 'A new code has been sent');
+        console.log('New OTP:', result.otp); // For development
+      } else {
+        Alert.alert('Error', result.error || 'Could not resend code');
+      }
 
       const timer = setInterval(() => {
         setResendTimer((prev) => {

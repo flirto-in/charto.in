@@ -11,7 +11,6 @@ export default function AuthLayout() {
       >
         <Stack.Screen name="WhatsAppNumberInput" />
         <Stack.Screen name="otp" />
-        <Stack.Screen name="googleAuth" />
       </Stack>
     </RouteProtection>
   );
