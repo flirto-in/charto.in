@@ -7,7 +7,9 @@ export const API_CONFIG = {
     SEND_OTP: '/auth/send-otp',
     AUTHENTICATE: '/auth/authintication',
     USER_PROFILE: '/users/', // /users/{userId} to get specific user profile
-    UPDATE_PROFILE: '/users/', // /users/{userId} to update specific user profile
+    UPDATE_PROFILE: '/users/', // method patch /users/{userId} to update specific user profile
+    CHECK_UID_AVAILABILITY: '/users/check-uid/', // method get /users/check-uid/{uid} to check if U_Id is available
+    TEST_UPDATE: '/users/test/', // method patch /users/test/{userId} for testing
     // Add more protected endpoints here
     GET_MESSAGES: '/messages',
     SEND_MESSAGE: '/messages/send',
@@ -149,3 +151,109 @@ export const publicApiCall = async (endpoint, options = {}) => {
     // Don't include Authorization header for public endpoints
   });
 };
+
+// Profile Update API Functions
+export const updateUserProfile = async (userId, profileData) => {
+  try {
+    console.log('=== PROFILE UPDATE DEBUG ===');
+    console.log('User ID:', userId);
+    console.log('Profile Data (incoming):', profileData);
+
+    if (!userId) throw new Error('User ID is required');
+
+    const cleanData = {
+      // include U_Id if caller passed it (backend may expect it even if unchanged)
+      ...(profileData.U_Id ? { U_Id: String(profileData.U_Id).trim() } : {}),
+      description: profileData.description?.trim() || '',
+      tags: Array.isArray(profileData.tags) ? profileData.tags.filter(t => t && t.trim()).slice(0,3) : [],
+      interests: Array.isArray(profileData.interests) ? profileData.interests.filter(i => i && i.trim()).slice(0,10) : [],
+    };
+
+    if (cleanData.description.length > 200) cleanData.description = cleanData.description.slice(0,200);
+
+    const endpoint = `${API_CONFIG.ENDPOINTS.UPDATE_PROFILE}${userId}`;
+    const fullUrl = `${API_CONFIG.BASE_URL}${endpoint}`;
+    console.log('[ProfileUpdate] Attempt PATCH', fullUrl, cleanData);
+
+    let response;
+    let methodTried = 'PATCH';
+    try {
+      response = await authenticatedApiCall(endpoint, { method: 'PATCH', body: JSON.stringify(cleanData) });
+    } catch (patchErr) {
+      // Fallback logic: some backends implemented only PATCH
+      if (patchErr.message.includes('405') || patchErr.message.includes('Cannot') || patchErr.message.includes('method') || patchErr.message.includes('500')) {
+        console.warn('[ProfileUpdate] PATCH failed, retrying with PATCH. Reason:', patchErr.message);
+        methodTried = 'PATCH';
+        response = await authenticatedApiCall(endpoint, { method: 'PATCH', body: JSON.stringify(cleanData) });
+      } else {
+        throw patchErr;
+      }
+    }
+
+    console.log(`[ProfileUpdate] ${methodTried} success:`, response);
+    console.log('=== END DEBUG ===');
+    return { ...response, meta: { methodUsed: methodTried } };
+  } catch (error) {
+    console.error('=== PROFILE UPDATE ERROR ===');
+    console.error('Error details:', { message: error.message, stack: error.stack });
+    console.error('Hint: If backend only supports PATCH, keep fallback or switch permanently.');
+    throw error;
+  }
+};
+
+export const checkUidAvailability = async (uid) => {
+  try {
+    const response = await authenticatedApiCall(`${API_CONFIG.ENDPOINTS.CHECK_UID_AVAILABILITY}${uid}`, {
+      method: 'GET',
+    });
+    return response;
+  } catch (error) {
+    console.error('Error checking UID availability:', error);
+    throw error;
+  }
+};
+
+// Test function to diagnose backend issues
+export const testBackendEndpoints = async (userId) => {
+  const results = {
+    getProfile: { tested: false, success: false, error: null },
+    updateProfile: { tested: false, success: false, error: null },
+    baseUrl: API_CONFIG.BASE_URL,
+    userId: userId
+  };
+
+  // Test GET endpoint first
+  try {
+    console.log('Testing GET /users/:id endpoint...');
+    const getResponse = await authenticatedApiCall(`${API_CONFIG.ENDPOINTS.USER_PROFILE}${userId}`, {
+      method: 'GET',
+    });
+    results.getProfile = { tested: true, success: true, response: getResponse };
+    console.log('✅ GET endpoint works');
+  } catch (error) {
+    results.getProfile = { tested: true, success: false, error: error.message };
+    console.log('❌ GET endpoint failed:', error.message);
+  }
+
+  // Test PATCH endpoint with minimal data
+  try {
+    console.log('Testing PATCH /users/:id endpoint...');
+    const testData = { description: 'Test update' };
+    const putResponse = await authenticatedApiCall(`${API_CONFIG.ENDPOINTS.UPDATE_PROFILE}${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(testData),
+    });
+    results.updateProfile = { tested: true, success: true, response: putResponse };
+    console.log('✅ PATCH endpoint works');
+  } catch (error) {
+    results.updateProfile = { tested: true, success: false, error: error.message };
+    console.log('❌ PATCH endpoint failed:', error.message);
+  }
+
+  return results;
+};
+
+// NOTE: CHECK_UID_AVAILABILITY and TEST_UPDATE are currently not used by the active profile update UI.
+// They are retained for future features (custom U_Id / diagnostics). Marked as deprecated for now.
+// If unused for a while, consider removing to reduce bundle size.
+

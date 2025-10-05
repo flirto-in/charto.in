@@ -1,50 +1,76 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Image, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import ProfileUpdate from '../../components/ProfileUpdate';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function Profile() {
-  const { user, logout, makeAuthenticatedRequest } = useAuth();
+  const { user, logout, makeAuthenticatedRequest, updateLocalUser } = useAuth();
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const displayUser = profileData || user;
+  const [editProfileVisible, setEditProfileVisible] = useState(false);
 
-  useEffect(() => {
-    fetchProfile();
-  }, [user, fetchProfile]);
+  // Extract primitive userId so dependency changes only when ID string changes
+  const userId = user?._id;
 
   const fetchProfile = useCallback(async () => {
-    if (!user?._id) return;
+    if (!userId) return;
 
     setLoading(true);
     try {
-      console.log('Fetching profile for user ID:', user._id);
-      const response = await makeAuthenticatedRequest(`/users/${user._id}`);
-      
+      console.log('[Profile] Fetching profile for user ID:', userId);
+      const response = await makeAuthenticatedRequest(`/users/${userId}`);
+
       if (response.success && response.data?.user) {
-        console.log('Profile data set:', response.data.user);
-        // Ensure interests array exists
-        const userData = response.data.user;
+        const userData = { ...response.data.user };
         if (!userData.interests || userData.interests.length === 0) {
           userData.interests = ['tech', 'music', 'travel', 'coding', 'art', 'sports', 'photography', 'gaming'];
         }
         setProfileData(userData);
+        // Only update context user if something actually changed (prevents fetch loops)
+        if (user && JSON.stringify({
+          description: user.description,
+          tags: user.tags,
+          interests: user.interests,
+        }) !== JSON.stringify({
+          description: userData.description,
+          tags: userData.tags,
+          interests: userData.interests,
+        })) {
+          updateLocalUser(userData);
+        }
       } else {
-        console.log('Profile fetch failed:', response);
+        console.log('[Profile] Profile fetch failed:', response);
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('[Profile] Error fetching profile:', error);
     } finally {
       setLoading(false);
     }
-  }, [user, makeAuthenticatedRequest]);
+  }, [userId, makeAuthenticatedRequest, updateLocalUser, user]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [userId, fetchProfile]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchProfile();
     setRefreshing(false);
+  };
+
+  const handleProfileUpdateSuccess = (updatedUserData) => {
+    // Update the profile data with the new information
+    if (updatedUserData?.user) {
+      setProfileData(updatedUserData.user);
+      // persist locally so other screens get updated immediately
+      updateLocalUser(updatedUserData.user);
+    }
+    // Refresh the profile to get latest data from server
+    fetchProfile();
   };
 
   const handleLogout = () => {
@@ -162,6 +188,12 @@ export default function Profile() {
                   />
                 </View>
               )}
+              <TouchableOpacity 
+                onPress={() => setEditProfileVisible(true)}
+                className="ml-2 w-6 h-6 bg-purple-600 rounded-full items-center justify-center"
+              >
+                <Text className="text-white text-xs">✏️</Text>
+              </TouchableOpacity>
             </View>
 
 
@@ -183,6 +215,7 @@ export default function Profile() {
               <View className="absolute top-14 right-4 bg-gray-800 rounded-lg overflow-hidden shadow-lg border border-gray-700 z-20 min-w-[180px]">
                 {renderDropdownItem('✏️', 'Edit Profile', () => {
                   setSettingsVisible(false);
+                  setEditProfileVisible(true);
                 })}
                 {renderDropdownItem('🔒', 'Privacy Settings', () => {
                   setSettingsVisible(false);
@@ -331,6 +364,14 @@ export default function Profile() {
         )}
         </View>
       </ScrollView>
+
+      {/* Profile Update Modal */}
+      <ProfileUpdate
+        visible={editProfileVisible}
+        initialData={displayUser}
+        onClose={() => setEditProfileVisible(false)}
+        onSuccess={handleProfileUpdateSuccess}
+      />
     </View>
   );
 }

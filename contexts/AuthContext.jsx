@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { API_CONFIG, authenticatedApiCall, publicApiCall } from '../config/api';
 
 const AuthContext = createContext({});
@@ -21,9 +21,9 @@ export const AuthProvider = ({ children }) => {
   // Check authentication status on app start
   useEffect(() => {
     checkAuthStatus();
-  }, []);
+  }, [checkAuthStatus]);
 
-  const checkAuthStatus = async () => {
+  const checkAuthStatus = useCallback(async () => {
     try {
       const accessToken = await SecureStore.getItemAsync('accessToken');
       const userData = await AsyncStorage.getItem('@user_data');
@@ -53,12 +53,13 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   const login = async (userData) => {
     try {
       await AsyncStorage.setItem('@user_auth', JSON.stringify(userData));
       await AsyncStorage.setItem('@user_verified', 'true');
+      await AsyncStorage.setItem('@user_data', JSON.stringify(userData));
       setUser(userData);
       setIsAuthenticated(true);
       return true;
@@ -77,6 +78,33 @@ export const AuthProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error('Error during logout:', error);
+      return false;
+    }
+  };
+
+  const updateLocalUser = async (partialUser) => {
+    try {
+      if (!user) return;
+      const updated = { ...user, ...partialUser };
+      // Avoid unnecessary re-render if no shallow changes
+      const prevStr = JSON.stringify({
+        description: user.description,
+        tags: user.tags,
+        interests: user.interests,
+      });
+      const nextStr = JSON.stringify({
+        description: updated.description,
+        tags: updated.tags,
+        interests: updated.interests,
+      });
+      if (prevStr === nextStr) {
+        return false; // nothing materially changed
+      }
+      setUser(updated);
+      await AsyncStorage.setItem('@user_data', JSON.stringify(updated));
+      return true;
+    } catch (error) {
+      console.error('Error updating local user:', error);
       return false;
     }
   };
@@ -173,6 +201,7 @@ export const AuthProvider = ({ children }) => {
       const currentUser = { ...user, ...additionalData };
       await AsyncStorage.setItem('@user_auth', JSON.stringify(currentUser));
       await AsyncStorage.setItem('@user_verified', 'true');
+      await AsyncStorage.setItem('@user_data', JSON.stringify(currentUser));
       setUser(currentUser);
       setIsAuthenticated(true);
       return true;
@@ -193,7 +222,8 @@ export const AuthProvider = ({ children }) => {
       verifyOTP,
       completeAuth,
       checkAuthStatus,
-      makeAuthenticatedRequest, // Use this for all authenticated API calls
+      makeAuthenticatedRequest,
+      updateLocalUser,
     }}>
       {children}
     </AuthContext.Provider>
