@@ -3,7 +3,7 @@ import { Alert, Image, RefreshControl, ScrollView, Text, TouchableOpacity, View 
 import CreatePost from '../../components/CreatePost';
 import PostsList from '../../components/PostsList';
 import ProfileUpdate from '../../components/ProfileUpdate';
-import { apiCreatePost, getMyProfile, getUserPosts } from '../../utils/apiCalling';
+import { apiCreatePost, deletePost, getMyProfile, getUserPosts } from '../../utils/apiCalling';
 import handleLogout from '../../utils/handleLogout';
 
 export default function Profile() {
@@ -323,7 +323,21 @@ export default function Profile() {
               />
             </View>
 
-            <PostsList posts={posts} currentUserId={ displayUser?.U_Id} />
+            <PostsList
+              posts={posts}
+              currentUserId={displayUser?.U_Id}
+              onDelete={async (post) => {
+                const postId = post._id || post.id;
+                if (!postId) return;
+                try {
+                  await deletePost(postId);
+                  // ensure sync with server (optional)
+                  fetchUserPosts();
+                } catch (e) {
+                  Alert.alert('Delete Failed', e?.message || 'Could not delete post');
+                }
+              }}
+            />
             {postsLoading && (
               <Text className="text-gray-500 text-xs mt-2">Refreshing posts...</Text>
             )}

@@ -132,7 +132,7 @@ export async function updateMyProfile(data) {
   if (!uid) throw new Error('No stored user id');
   return apiPatch(`${API_CONFIG.ENDPOINTS.UPDATE_PROFILE}/${uid}`, data, true);
 }
-    /**
+    /*
      * @api /posts/user/{userId}
      * Auth required
      * @method GET
@@ -143,6 +143,15 @@ export async function getUserPosts() {
   const uid = await getUserId();
   if (!uid) throw new Error('No stored user id');
   return apiGet(`${API_CONFIG.ENDPOINTS.USER_POSTS}/${uid}`, true);
+}
+
+/*
+ * DELETE /posts/{postId}
+ * Auth required.
+ */
+export async function deletePost(postId) {
+  if (!postId) throw new Error('No postId provided');
+  return apiDelete(`${API_CONFIG.ENDPOINTS.DELETE_POST}/${postId}`, true);
 }
 
 export default {
@@ -156,5 +165,6 @@ export default {
   apiCreatePost,
   getMyProfile,
     getUserPosts,
+    deletePost,
   updateMyProfile,
 };

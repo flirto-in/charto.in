@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
 
 
 const PostsList = ({
   posts = [],
   currentUserId,
   onLike,
+  onDelete, // (post, index) => Promise | void
   showEmptyFallback = true,
 }) => {
   const [localPosts, setLocalPosts] = useState(posts);
@@ -17,6 +18,9 @@ const PostsList = ({
 //   console.log('====================================');
 //   console.log(localPosts);
 //   console.log('====================================');
+/**
+ * LOG  {"__v": 0, "_id": "68e315a5badc1c4e2244e6b5", "content": "Jdjdj", "createdAt": "2025-10-06T01:04:37.156Z", "createdBy": {"U_Id": "14725836", "_id": "68e043ee072a126df4bc3aa7", "description": "this is the foundcer of flerto and many more multi bilionarthis is the foundcer of flerto and many more multi bilionarthis is the foundcer of flerto and many more multi bilionarthis is the foundcer of", "tags": ["friends", "chat", "jcuditsiuxkyxiyxutzt"]}, "likes": [], "updatedAt": "2025-10-06T01:04:37.156Z"}
+ */
 
   const handleLike = async (item, index) => {
     // optimistic update
@@ -50,6 +54,36 @@ const PostsList = ({
     }
   };
 
+  const confirmDelete = (item, index) => {
+    if (!onDelete) return;
+    Alert.alert(
+      'Delete Post',
+      'Are you sure you want to delete this post?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            // optimistic removal
+            setLocalPosts(prev => prev.filter((_, i) => i !== index));
+            try {
+              await Promise.resolve(onDelete(item, index));
+            } catch (e) {
+              // restore on failure
+              setLocalPosts(prev => {
+                const clone = [...prev];
+                clone.splice(index, 0, item);
+                return clone;
+              });
+              Alert.alert('Delete Failed', e?.message || 'Unable to delete post');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderItem = ({ item, index }) => {
     console.log('====================================');
     console.log(item);
@@ -59,7 +93,15 @@ const PostsList = ({
     const isOwner = currentUserId && (id === currentUserId || item.userId === currentUserId);
     const likeCount = Array.isArray(item.likes) ? item.likes.length : (item.likes || 0);
     return (
-      <View className="bg-gray-800 p-4 rounded-xl border border-gray-700 mb-4 flex-row">
+      <TouchableOpacity
+        activeOpacity={0.9}
+        className="bg-gray-800 p-4 rounded-xl border border-gray-700 mb-4 flex-row"
+        delayLongPress={350}
+        onLongPress={() => {
+          // Only allow delete for owner
+          if (isOwner) confirmDelete(item, index);
+        }}
+      >
         <View className="flex-1 pr-3">
           <Text className="text-white font-semibold text-sm mb-1">{id}{isOwner ? ' (Me)' : ''}</Text>
           <Text className="text-gray-300 text-sm leading-5" numberOfLines={6}>{content}</Text>
@@ -74,7 +116,7 @@ const PostsList = ({
         >
           <Text className="text-white text-base">👍</Text>
         </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
     );
   };
 

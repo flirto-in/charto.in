@@ -51,6 +51,12 @@ export const API_CONFIG = {
      * @return [array of posts by user] of posts by the user
      */
     USER_POSTS: '/posts/user',
+    /**
+     * @description Delete a post by its ID
+     * @api /posts/{postId}
+     * @method DELETE
+     */
+    DELETE_POST: '/posts',
   },
 };
 
