@@ -1,60 +1,43 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Image, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import ProfileUpdate from '../../components/ProfileUpdate';
-import { useAuth } from '../../contexts/AuthContext';
+import { getMyProfile } from '../../utils/apiCalling';
+import handleLogout from '../../utils/handleLogout';
 
 export default function Profile() {
-  const { user, logout, makeAuthenticatedRequest, updateLocalUser } = useAuth();
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  const displayUser = profileData || user;
   const [editProfileVisible, setEditProfileVisible] = useState(false);
 
-  // Extract primitive userId so dependency changes only when ID string changes
-  const userId = user?._id;
+  const displayUser = profileData; // Only local state now
 
   const fetchProfile = useCallback(async () => {
-    if (!userId) return;
-
     setLoading(true);
     try {
-      console.log('[Profile] Fetching profile for user ID:', userId);
-      const response = await makeAuthenticatedRequest(`/users/${userId}`);
-
-      if (response.success && response.data?.user) {
-        const userData = { ...response.data.user };
-        if (!userData.interests || userData.interests.length === 0) {
-          userData.interests = ['tech', 'music', 'travel', 'coding', 'art', 'sports', 'photography', 'gaming'];
-        }
-        setProfileData(userData);
-        // Only update context user if something actually changed (prevents fetch loops)
-        if (user && JSON.stringify({
-          description: user.description,
-          tags: user.tags,
-          interests: user.interests,
-        }) !== JSON.stringify({
-          description: userData.description,
-          tags: userData.tags,
-          interests: userData.interests,
-        })) {
-          updateLocalUser(userData);
-        }
-      } else {
-        console.log('[Profile] Profile fetch failed:', response);
+      console.log('[Profile] Fetching profile via getMyProfile');
+      const resp = await getMyProfile();
+      const userData = resp?.user || resp?.data?.user || resp;
+      if (!userData) {
+        console.log('[Profile] Unexpected response shape:', resp);
+        return;
       }
+      const enriched = { ...userData };
+      if (!enriched.interests || enriched.interests.length === 0) {
+        enriched.interests = ['tech', 'music', 'travel', 'coding', 'art', 'sports', 'photography', 'gaming'];
+      }
+      setProfileData(enriched);
     } catch (error) {
       console.error('[Profile] Error fetching profile:', error);
     } finally {
       setLoading(false);
     }
-  }, [userId, makeAuthenticatedRequest, updateLocalUser, user]);
+  }, []);
 
   useEffect(() => {
     fetchProfile();
-  }, [userId, fetchProfile]);
+  }, [fetchProfile]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -63,26 +46,13 @@ export default function Profile() {
   };
 
   const handleProfileUpdateSuccess = (updatedUserData) => {
-    // Update the profile data with the new information
     if (updatedUserData?.user) {
       setProfileData(updatedUserData.user);
-      // persist locally so other screens get updated immediately
-      updateLocalUser(updatedUserData.user);
     }
-    // Refresh the profile to get latest data from server
     fetchProfile();
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', onPress: logout }
-      ]
-    );
-  };
+
 
   const renderDropdownItem = (icon, text, onPress, isLast = false) => (
     <TouchableOpacity
@@ -96,7 +66,7 @@ export default function Profile() {
   );
 
   // Loading state while user data is being fetched
-  if (!user && !profileData && !loading) {
+  if (!profileData && !loading) {
     return (
       <View className="flex-1 bg-black items-center justify-center">
         <Text className="text-white text-lg">Loading profile...</Text>
