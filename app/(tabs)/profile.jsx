@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Image, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import CreatePost from '../../components/CreatePost';
+import PostsList from '../../components/PostsList';
 import ProfileUpdate from '../../components/ProfileUpdate';
-import { getMyProfile } from '../../utils/apiCalling';
+import { apiCreatePost, getMyProfile, getUserPosts } from '../../utils/apiCalling';
 import handleLogout from '../../utils/handleLogout';
 
 export default function Profile() {
@@ -10,7 +12,10 @@ export default function Profile() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [editProfileVisible, setEditProfileVisible] = useState(false);
+  const [posts, setPosts] = useState([]);
+  const [postsLoading, setPostsLoading] = useState(false);
 
+  
   const displayUser = profileData; // Only local state now
 
   const fetchProfile = useCallback(async () => {
@@ -35,13 +40,27 @@ export default function Profile() {
     }
   }, []);
 
+  const fetchUserPosts = useCallback(async () => {
+    setPostsLoading(true);
+    try {
+      const resp = await getUserPosts();
+      const arr = resp?.data?.posts || resp?.posts || resp;
+      if (Array.isArray(arr)) setPosts(arr);
+    } catch (e) {
+      console.error('[Profile] Error fetching posts:', e);
+    } finally {
+      setPostsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchProfile();
-  }, [fetchProfile]);
+    fetchUserPosts();
+  }, [fetchProfile, fetchUserPosts]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchProfile();
+    await Promise.all([fetchProfile(), fetchUserPosts()]);
     setRefreshing(false);
   };
 
@@ -50,6 +69,35 @@ export default function Profile() {
       setProfileData(updatedUserData.user);
     }
     fetchProfile();
+  };
+
+  // Create Post handler using API then optimistic fallback
+  const handleCreatePost = async (content) => {
+    const optimisticPost = {
+      id: `temp-${Date.now()}`,
+      content,
+      likes: 0,
+      comments: 0,
+      createdAt: new Date().toISOString(),
+      pending: true,
+    };
+    setPosts(prev => [optimisticPost, ...prev]);
+
+    try {
+      const resp = await apiCreatePost({ content });
+      // If API returns created post object, replace optimistic version
+      const created = resp?.post || resp?.data?.post || resp?.data || resp; // flexible
+      if (created && typeof created === 'object') {
+        setPosts(prev => prev.map(p => p.id === optimisticPost.id ? { ...created, replacedTempId: optimisticPost.id } : p));
+      }
+      Alert.alert('Success', 'Post created successfully');
+      // Refresh posts list to ensure correct order / server state
+      fetchUserPosts();
+    } catch (error) {
+      console.error('[Profile] Create post error:', error);
+      Alert.alert('Failed', error?.message || 'Unable to create post');
+      setPosts(prev => prev.filter(p => p.id !== optimisticPost.id));
+    }
   };
 
 
@@ -240,9 +288,7 @@ export default function Profile() {
             {/* Stats Row */}
             <View className="flex-row justify-around items-center py-2">
               <View className="items-center">
-                <Text className="text-white font-bold text-2xl">
-                  {displayUser?.posts?.length || 0}
-                </Text>
+                <Text className="text-white font-bold text-2xl">{posts.length}</Text>
                 <Text className="text-gray-400 text-sm">Posts</Text>
               </View>
               
@@ -270,59 +316,16 @@ export default function Profile() {
           <View className="mb-6">
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-white font-bold text-xl">Posts</Text>
-              <TouchableOpacity className="bg-purple-600 px-4 py-2 rounded-full">
-                <Text className="text-white font-semibold">Create Post</Text>
-              </TouchableOpacity>
+              <CreatePost
+                buttonLabel="Create Post"
+                onCreate={handleCreatePost}
+                buttonClassName="px-4 py-2"
+              />
             </View>
 
-            {/* Posts List */}
-            {(displayUser?.posts?.length > 0) ? (
-              <View className="space-y-4">
-                {displayUser.posts.map((post, index) => (
-                  <View key={index} className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                    <Text className="text-white font-medium mb-2">{post.title || `Post ${index + 1}`}</Text>
-                    <Text className="text-gray-300 text-sm">{post.content || post.description || 'Post content...'}</Text>
-                    <View className="flex-row items-center mt-3">
-                      <Text className="text-gray-400 text-xs mr-4">❤️ {post.likes || 0}</Text>
-                      <Text className="text-gray-400 text-xs mr-4">💬 {post.comments || 0}</Text>
-                      <Text className="text-gray-400 text-xs">{post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Recently'}</Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              // Default posts when user has no posts
-              <View className="space-y-4">
-                <View className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                  <Text className="text-white font-medium mb-2">Welcome to the community! 🎉</Text>
-                  <Text className="text-gray-300 text-sm">This is where your posts will appear. Share your thoughts, experiences, or anything that interests you!</Text>
-                  <View className="flex-row items-center mt-3">
-                    <Text className="text-gray-400 text-xs mr-4">❤️ 12</Text>
-                    <Text className="text-gray-400 text-xs mr-4">💬 3</Text>
-                    <Text className="text-gray-400 text-xs">Sample post</Text>
-                  </View>
-                </View>
-
-                <View className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                  <Text className="text-white font-medium mb-2">Getting started with posting 📝</Text>
-                  <Text className="text-gray-300 text-sm">Tips: Be authentic, engage with others, and share content that adds value to the community.</Text>
-                  <View className="flex-row items-center mt-3">
-                    <Text className="text-gray-400 text-xs mr-4">❤️ 8</Text>
-                    <Text className="text-gray-400 text-xs mr-4">💬 5</Text>
-                    <Text className="text-gray-400 text-xs">Sample post</Text>
-                  </View>
-                </View>
-
-                <View className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                  <Text className="text-white font-medium mb-2">Connect and discover 🌟</Text>
-                  <Text className="text-gray-300 text-sm">Explore different topics, join conversations, and build meaningful connections with like-minded people.</Text>
-                  <View className="flex-row items-center mt-3">
-                    <Text className="text-gray-400 text-xs mr-4">❤️ 15</Text>
-                    <Text className="text-gray-400 text-xs mr-4">💬 7</Text>
-                    <Text className="text-gray-400 text-xs">Sample post</Text>
-                  </View>
-                </View>
-              </View>
+            <PostsList posts={posts} currentUserId={ displayUser?.U_Id} />
+            {postsLoading && (
+              <Text className="text-gray-500 text-xs mt-2">Refreshing posts...</Text>
             )}
           </View>
         </View>

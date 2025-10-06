@@ -102,6 +102,17 @@ export function authenticate(payload) {
   return apiPost(API_CONFIG.ENDPOINTS.AUTHENTICATE, payload, false);
 }
 
+
+/**
+ * POST /posts
+ * Auth required.
+ * Body: { content: string }
+ * returns success message
+ */
+export function apiCreatePost(payload) {
+  return apiPost(API_CONFIG.ENDPOINTS.CREATE_POST, payload, true);
+}
+
 /**
  * GET /users/{userId}
  * Auth required.
@@ -121,6 +132,18 @@ export async function updateMyProfile(data) {
   if (!uid) throw new Error('No stored user id');
   return apiPatch(`${API_CONFIG.ENDPOINTS.UPDATE_PROFILE}/${uid}`, data, true);
 }
+    /**
+     * @api /posts/user/{userId}
+     * Auth required
+     * @method GET
+     * @accept userId from path params and auth token from headers
+     * @return [array of posts by user] of posts by the user
+     */
+export async function getUserPosts() {
+  const uid = await getUserId();
+  if (!uid) throw new Error('No stored user id');
+  return apiGet(`${API_CONFIG.ENDPOINTS.USER_POSTS}/${uid}`, true);
+}
 
 export default {
   api,
@@ -130,6 +153,8 @@ export default {
   apiDelete,
   sendOtp,
   authenticate,
+  apiCreatePost,
   getMyProfile,
+    getUserPosts,
   updateMyProfile,
 };

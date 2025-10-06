@@ -4,14 +4,14 @@ export const API_CONFIG = {
   TIMEOUT: 10000,
   ENDPOINTS: {
     // Auth
-    /*
+    /**
     * @api /auth/send-otp
     * @method POST
     * @accept user's phone number from body
      */
     SEND_OTP: '/auth/send-otp',
 
-    /*
+    /**
     * @api /auth/authintication
     * @method POST
     * @accept user's phone number and otp from body
@@ -20,7 +20,7 @@ export const API_CONFIG = {
     AUTHENTICATE: '/auth/authintication',
 
     // Users
-    /*
+    /**
     * @api /users/{userId}
     * @method GET
     * @accept userId from path params and auth token from headers
@@ -28,12 +28,29 @@ export const API_CONFIG = {
      */
     USER_PROFILE: '/users',         
 
-    /*
+    /**
     * @api /users/{userId}
     * @method PATCH
     * @accept userId from path params, auth token from headers and profile data from body(description,tags,interests)
      */
-    UPDATE_PROFILE: '/users',            
+    UPDATE_PROFILE: '/users',    
+    
+    // Posts
+    /**
+    * @api /posts
+    * @method post
+    * @accept post content from body 
+    * @accept auth token from headers
+    * @return success message
+     */
+    CREATE_POST: '/posts',
+    /**
+     * @api /posts/user/{userId}
+     * @method GET
+     * @accept userId from path params and auth token from headers
+     * @return [array of posts by user] of posts by the user
+     */
+    USER_POSTS: '/posts/user',
   },
 };
 
