@@ -1,12 +1,20 @@
 import { Redirect } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
-import { useAuth } from '../contexts/AuthContext';
+import { getAuthToken } from '../utils/AuthToken';
 
 export default function RouteProtection({ children, requireAuth = true }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const [isLoading, setLoading] = useState(true);
+  const [isAuthed, setAuthed] = useState(false);
 
-  // Show loading screen while checking authentication
+  useEffect(() => {
+    (async () => {
+      const token = await getAuthToken();
+      setAuthed(!!token);
+      setLoading(false);
+    })();
+  }, []);
+
   if (isLoading) {
     return (
       <View className="flex-1 bg-gray-900 items-center justify-center">
@@ -16,14 +24,12 @@ export default function RouteProtection({ children, requireAuth = true }) {
     );
   }
 
-  // If route requires authentication and user is not authenticated
-  if (requireAuth && !isAuthenticated) {
-    return <Redirect href="/(auth)/WhatsAppNumberInput" />;
+  if (requireAuth && !isAuthed) {
+    return <Redirect href='/(auth)/WhatsAppNumberInput' />;
   }
 
-  // If user is authenticated and trying to access auth pages
-  if (!requireAuth && isAuthenticated) {
-    return <Redirect href="/(tabs)" />;
+  if (!requireAuth && isAuthed) {
+    return <Redirect href='/(tabs)' />;
   }
 
   return children;

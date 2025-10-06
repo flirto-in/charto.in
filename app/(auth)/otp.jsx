@@ -2,16 +2,17 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../../contexts/AuthContext';
+import { authenticate, sendOtp } from '../../utils/apiCalling';
+import { setAuthToken } from '../../utils/AuthToken';
+import { setUserId } from '../../utils/saveUserID';
 
 export default function OTPVerification() {
   const { phoneNumber } = useLocalSearchParams();
-  const [otp, setOtp] = useState(['', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '']); // 4-digit, adjust if backend changes
   const [isLoading, setIsLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
-  const { verifyOTP, sendOTP } = useAuth();
-  
+  // Removed useAuth; using direct API helpers
   const inputRefs = useRef([]);
 
   useEffect(() => {
@@ -55,26 +56,28 @@ export default function OTPVerification() {
 
   const handleVerifyOtp = async () => {
     const otpValue = otp.join('');
-    
     if (otpValue.length !== 4) {
       Alert.alert('Incomplete Code', 'Please enter the complete verification code');
       return;
     }
-
     setIsLoading(true);
     try {
-      const result = await verifyOTP(phoneNumber, otpValue);
-      
-      if (result.success) {
-        // OTP verified successfully, authentication complete - go to main app
+      // Call authenticate API
+      const resp = await authenticate({  phoneNumber:phoneNumber, otp: otpValue });
+      // Expect resp.accessToken & resp.user?._id based on earlier endpoint description
+      console.log('Authentication response:', resp.data.id);
+
+      if (resp.data.accessToken && resp.data.id) {
+        await setAuthToken(resp.data.accessToken);
+        await setUserId(resp.data.id);
         router.replace('/(tabs)');
       } else {
-        Alert.alert('Invalid Code', result.error || 'Please check and try again');
+        Alert.alert('Invalid Code', resp?.message || 'Please check and try again');
         setOtp(['', '', '', '']);
         inputRefs.current[0]?.focus();
       }
-    } catch (_error) {
-      Alert.alert('Error', 'Please try again');
+    } catch (e) {
+      Alert.alert('Error', e.message || 'Please try again');
     } finally {
       setIsLoading(false);
     }
@@ -82,21 +85,17 @@ export default function OTPVerification() {
 
   const handleResendCode = async () => {
     if (!canResend) return;
-
     setCanResend(false);
     setResendTimer(30);
     setOtp(['', '', '', '']);
-    
     try {
-      const result = await sendOTP(phoneNumber);
-      
-      if (result.success) {
-        Alert.alert('Code Sent', 'A new code has been sent');
-        console.log('New OTP:', result.otp); // For development
+      const resp = await sendOtp({ phone: phoneNumber });
+      if (resp?.error) {
+        Alert.alert('Error', resp.error || 'Could not resend code');
       } else {
-        Alert.alert('Error', result.error || 'Could not resend code');
+        Alert.alert('Code Sent', 'A new code has been sent');
+        if (resp?.otp) console.log('New OTP (dev):', resp.otp);
       }
-
       const timer = setInterval(() => {
         setResendTimer((prev) => {
           if (prev <= 1) {
@@ -107,8 +106,8 @@ export default function OTPVerification() {
           return prev - 1;
         });
       }, 1000);
-    } catch (_error) {
-      Alert.alert('Error', 'Could not resend code');
+    } catch (e) {
+      Alert.alert('Error', e.message || 'Could not resend code');
       setCanResend(true);
     }
   };

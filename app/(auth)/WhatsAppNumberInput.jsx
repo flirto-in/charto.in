@@ -3,13 +3,12 @@ import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AuthFooter from '../../components/AuthFooter';
-import { useAuth } from '../../contexts/AuthContext';
-
+import { sendOtp } from '../../utils/apiCalling';
 
 export default function WhatsAppNumberInput() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { sendOTP } = useAuth();
+  // const { /* isAuthenticated etc. */ } = useAuth(); // optional
 
   const validatePhoneNumber = (number) => {
     const cleaned = number.replace(/\D/g, '');
@@ -32,6 +31,20 @@ export default function WhatsAppNumberInput() {
     setPhoneNumber(formatted);
   };
 
+  // Convert raw digits to E.164 format for India (+91) or fallback
+  const toE164 = (rawDigits) => {
+    if (!rawDigits) return '';
+    let digits = rawDigits.replace(/\D/g, '');
+    // If already starts with country code 91 and total length 12 (91 + 10) -> prefix '+'
+    if (digits.startsWith('91') && digits.length === 12) return '+' + digits;
+    // If plain 10-digit Indian number -> add +91
+    if (digits.length === 10) return '+91' + digits;
+    // If user already typed with leading country code including plus
+    if (rawDigits.startsWith('+')) return rawDigits;
+    // Fallback: just return with plus
+    return '+' + digits;
+  };
+
   const handleContinue = async () => {
     if (!validatePhoneNumber(phoneNumber)) {
       Alert.alert('Invalid Number', 'Please enter a valid Whatsapp number');
@@ -40,22 +53,35 @@ export default function WhatsAppNumberInput() {
 
     setIsLoading(true);
     try {
-      const cleanedNumber = phoneNumber.replace(/\D/g, '');
-      const result = await sendOTP(cleanedNumber);
-      
-      if (result.success) {
-        // For development, you can log the OTP
-        console.log('OTP sent:', result.otp);
-        
-        router.push({
-          pathname: '/otp',
-          params: { phoneNumber: cleanedNumber }
-        });
-      } else {
-        Alert.alert('Error', result.error || 'Failed to send OTP');
+      const cleanedDigits = phoneNumber.replace(/\D/g, '');
+      const e164 = toE164(cleanedDigits);
+
+      // Send multiple possible keys to satisfy unknown backend expectation
+      // Backend should ignore extra keys it doesn't use.
+      const resp = await sendOtp({
+        phoneNumber: e164, // common naming
+        phone: e164,       // previous attempt
+        whatsapp: e164,    // just in case backend expects this
+      });
+      // Adjust below depending on actual response shape
+      // Example possibilities: resp.success, resp.otp, resp.message, etc.
+      if (resp?.success === false) {
+        Alert.alert('Error', resp?.error || resp?.message || 'Failed to send OTP');
+        return;
       }
-    } catch (_error) {
-      Alert.alert('Error', 'Please try again');
+
+      // (Optional) Log OTP if backend returns it for dev
+      if (resp?.otp) {
+        console.log('OTP (dev only):', resp.otp);
+      }
+
+      router.push({
+        pathname: '/otp',
+        params: { phoneNumber: cleanedDigits }
+      });
+    } catch (e) {
+      console.log('sendOtp error:', e);
+      Alert.alert('Error', e.message || 'Please try again');
     } finally {
       setIsLoading(false);
     }
@@ -63,8 +89,8 @@ export default function WhatsAppNumberInput() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-900">
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
         <View className="flex-1 px-8 py-12">
@@ -91,7 +117,7 @@ export default function WhatsAppNumberInput() {
                 onChangeText={handlePhoneNumberChange}
                 keyboardType="phone-pad"
                 maxLength={15}
-                autoFocus={true}
+                autoFocus
               />
             </View>
           </View>

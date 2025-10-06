@@ -1,21 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { updateUserProfile } from '../config/api';
-import { useAuth } from '../contexts/AuthContext';
+import { updateMyProfile } from '../utils/apiCalling';
 
-const ProfileUpdate = ({ visible, onClose, onSuccess }) => {
-  const { user } = useAuth();
+/**
+ * ProfileUpdate modal
+ * Props:
+ *  - visible: boolean
+ *  - initialData: user object containing description, tags, interests
+ *  - onClose: () => void
+ *  - onSuccess: (updatedUserData) => void
+ */
+const ProfileUpdate = ({ visible, initialData, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   
   // Form state - only editable fields as per requirements
@@ -38,15 +44,14 @@ const ProfileUpdate = ({ visible, onClose, onSuccess }) => {
   ];
 
   useEffect(() => {
-    if (visible && user) {
-      // Initialize form with current user data
+    if (visible && initialData) {
       setFormData({
-        description: user.description || '',
-        tags: user.tags || [],
-        interests: user.interests || [],
+        description: initialData.description || '',
+        tags: initialData.tags || [],
+        interests: initialData.interests || [],
       });
     }
-  }, [visible, user]);
+  }, [visible, initialData]);
 
   const addTag = () => {
     const trimmedTag = newTag.trim().toLowerCase();
@@ -151,19 +156,15 @@ const ProfileUpdate = ({ visible, onClose, onSuccess }) => {
         interests: formData.interests,
       };
 
-      console.log('Updating profile with data:', updateData);
-      console.log('User ID:', user._id);
-      
-      const response = await updateUserProfile(user._id, updateData);
-      
-      if (response && response.success) {
+      const resp = await updateMyProfile(updateData);
+      // Accept possible shapes: success wrappers or direct updated user
+      const updatedUser = resp?.user || resp?.data?.user || resp?.data || resp;
+      if (updatedUser) {
         Alert.alert('Success', 'Profile updated successfully!');
-        onSuccess && onSuccess(response.data);
+        onSuccess && onSuccess({ user: updatedUser });
         onClose();
       } else {
-        const errorMessage = response?.message || 'Failed to update profile';
-        console.log('Update failed with response:', response);
-        Alert.alert('Update Failed', errorMessage);
+        Alert.alert('Update Failed', 'Unexpected server response');
       }
     } catch (error) {
       console.error('Error updating profile:', error);
